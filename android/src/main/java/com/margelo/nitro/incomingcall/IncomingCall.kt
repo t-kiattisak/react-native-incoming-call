@@ -9,6 +9,14 @@ import org.json.JSONObject
 @DoNotStrip
 class IncomingCall : HybridIncomingCallSpec() {
 
+    private fun resolveContext(): android.content.Context? {
+        val reactContext = ContextProvider.getReactContext()
+        if (reactContext != null) {
+            IncomingCallModule.reactContext = reactContext as? com.facebook.react.bridge.ReactApplicationContext
+        }
+        return ContextProvider.getApplicationContext()
+    }
+
     override fun displayNotification(
         uuid: String,
         avatar: Variant_NullType_String?,
@@ -16,7 +24,7 @@ class IncomingCall : HybridIncomingCallSpec() {
         foregroundOptions: ForegroundOptions
     ) {
         Log.d("IncomingCall", "displayNotification ui")
-        val context = IncomingCallModule.reactContext ?: return
+        val context = resolveContext() ?: return
         
         try {
             val avatarStr = avatar?.asSecondOrNull()
@@ -59,7 +67,7 @@ class IncomingCall : HybridIncomingCallSpec() {
         if (IncomingCallActivity.active) {
             IncomingCallActivity.getInstance().destroyActivity(false)
         }
-        val context = IncomingCallModule.reactContext ?: return
+        val context = resolveContext() ?: return
         val intent = Intent(context, IncomingCallService::class.java).apply {
             action = Constants.HIDE_NOTIFICATION_INCOMING_CALL
         }
@@ -67,12 +75,13 @@ class IncomingCall : HybridIncomingCallSpec() {
     }
 
     override fun backToApp() {
-        val context = IncomingCallModule.reactContext ?: return
+        val context = resolveContext() ?: return
         val packageName = context.packageName
         val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return
         val focusIntent = launchIntent.cloneFilter()
         
-        val activity = context.currentActivity
+        val reactContext = IncomingCallModule.reactContext
+        val activity = reactContext?.currentActivity
         val isOpened = activity != null
         
         if (!isOpened) {
@@ -85,7 +94,7 @@ class IncomingCall : HybridIncomingCallSpec() {
             context.startActivity(focusIntent)
         } else {
             focusIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-            activity.startActivity(focusIntent)
+            activity?.startActivity(focusIntent)
         }
     }
 }
