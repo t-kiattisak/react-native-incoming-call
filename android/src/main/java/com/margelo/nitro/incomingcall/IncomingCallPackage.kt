@@ -7,7 +7,13 @@ import com.facebook.react.module.model.ReactModuleInfoProvider
 
 class IncomingCallPackage : BaseReactPackage() {
     override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? {
+        IncomingCallModule.reactContext = reactContext
         return null
+    }
+
+    override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
+        IncomingCallModule.reactContext = reactContext
+        return emptyList()
     }
 
     override fun getReactModuleInfoProvider(): ReactModuleInfoProvider {

@@ -1,5 +1,13 @@
 class IncomingCall: HybridIncomingCallSpec {
-    public func multiply(a: Double, b: Double) throws -> Double {
-        return a * b
+    public func displayNotification(uuid: String, avatar: String?, timeout: Double, foregroundOptions: ForegroundOptions) throws -> Void {
+        // iOS is a no-op stub for this library
+    }
+
+    public func hideNotification() throws -> Void {
+        // iOS is a no-op stub for this library
+    }
+
+    public func backToApp() throws -> Void {
+        // iOS is a no-op stub for this library
     }
 }
