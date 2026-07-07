@@ -11,7 +11,7 @@ class IncomingCall : HybridIncomingCallSpec() {
 
     override fun displayNotification(
         uuid: String,
-        avatar: String?,
+        avatar: Variant_NullType_String?,
         timeout: Double,
         foregroundOptions: ForegroundOptions
     ) {
@@ -19,10 +19,11 @@ class IncomingCall : HybridIncomingCallSpec() {
         val context = IncomingCallModule.reactContext ?: return
         
         try {
+            val avatarStr = avatar?.asSecondOrNull()
             val intent = Intent(context, IncomingCallService::class.java).apply {
                 putExtra("uuid", uuid)
                 putExtra("name", foregroundOptions.notificationTitle)
-                putExtra("avatar", avatar)
+                putExtra("avatar", avatarStr)
                 putExtra("info", foregroundOptions.notificationBody)
                 putExtra("channelId", foregroundOptions.channelId)
                 putExtra("channelName", foregroundOptions.channelName)
