@@ -1,2 +1,33 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.BROADCAST_CLOSE_SYSTEM_DIALOGS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
+
+    <application>
+        <activity android:name="com.margelo.nitro.incomingcall.IncomingCallActivity"
+            android:theme="@style/incomingCall"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            />
+        <activity android:name="com.margelo.nitro.incomingcall.NotificationReceiverActivity"
+            android:theme="@style/incomingCall"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            />
+        <service
+            android:name="com.margelo.nitro.incomingcall.IncomingCallService"
+            android:enabled="true"
+            android:stopWithTask="false"
+            android:foregroundServiceType="phoneCall"
+            android:exported="false" />
+    </application>
 </manifest>
