@@ -7,6 +7,8 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { show, dismiss, on, off, backToApp } from 'react-native-incoming-call';
 
@@ -27,6 +29,26 @@ export default function App() {
 
   useEffect(() => {
     addLog('IncomingCall module initialized', 'info');
+
+    const requestPermissions = async () => {
+      if (Platform.OS === 'android' && Platform.Version >= 33) {
+        const hasPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+        );
+        if (!hasPermission) {
+          addLog('Requesting notification permission...', 'info');
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+          );
+          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+            addLog('Notification permission granted', 'success');
+          } else {
+            addLog('Notification permission denied', 'danger');
+          }
+        }
+      }
+    };
+    requestPermissions();
 
     // Subscribe to call answer event
     on('answer', (payload) => {
