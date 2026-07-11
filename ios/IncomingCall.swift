@@ -1,5 +1,5 @@
 class IncomingCall: HybridIncomingCallSpec {
-    public func displayNotification(uuid: String, avatar: String?, timeout: Double, foregroundOptions: ForegroundOptions) throws -> Void {
+    public func displayNotification(uuid: String, avatar: Variant_NullType_String?, timeout: Double, foregroundOptions: ForegroundOptions) throws -> Void {
         // iOS is a no-op stub for this library
     }
 
