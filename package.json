@@ -35,6 +35,9 @@
   ],
   "scripts": {
     "example": "yarn workspace react-native-incoming-call-example",
+    "docs:dev": "yarn workspace react-native-incoming-call-docs docs:dev",
+    "docs:build": "yarn workspace react-native-incoming-call-docs docs:build",
+    "docs:preview": "yarn workspace react-native-incoming-call-docs docs:preview",
     "clean": "del-cli lib",
     "prepare": "bob build",
     "nitrogen": "nitrogen",
@@ -76,7 +79,8 @@
     "react-native-nitro-modules": "^0.36.1"
   },
   "workspaces": [
-    "example"
+    "example",
+    "docs"
   ],
   "packageManager": "yarn@4.11.0",
   "react-native-builder-bob": {
