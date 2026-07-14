@@ -13,7 +13,7 @@ export default defineConfig({
       {
         text: `v${pkg.version}`,
         items: [
-          { text: 'Changelog', link: 'https://github.com/t-kiattisak/react-native-incoming-call/releases' },
+          { text: 'Changelog', link: '/changelog' },
           { text: 'Contributing', link: 'https://github.com/t-kiattisak/react-native-incoming-call/blob/main/CONTRIBUTING.md' }
         ]
       }
@@ -38,7 +38,8 @@ export default defineConfig({
         text: 'Resources & Help',
         items: [
           { text: 'Assets & Customization', link: '/guide/assets-customization' },
-          { text: 'Troubleshooting & FAQ', link: '/guide/troubleshooting' }
+          { text: 'Troubleshooting & FAQ', link: '/guide/troubleshooting' },
+          { text: 'Changelog', link: '/changelog' }
         ]
       }
     ],
