@@ -10,7 +10,7 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
-import { show, dismiss, on, off, backToApp } from 'react-native-incoming-call';
+import { show, dismiss, on, off, backToApp } from 'rn-incoming-call-nitro';
 
 interface LogEntry {
   timestamp: string;

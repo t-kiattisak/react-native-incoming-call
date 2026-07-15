@@ -2,12 +2,12 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "react-native-incoming-call": ["./src/index"]
+      "rn-incoming-call-nitro": ["./src/index"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "customConditions": [
-      "react-native-incoming-call-source",
+      "rn-incoming-call-nitro-source",
       "react-native-strict-api"
     ],
     "esModuleInterop": true,

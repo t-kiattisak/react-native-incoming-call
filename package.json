@@ -1,12 +1,12 @@
 {
-  "name": "react-native-incoming-call",
+  "name": "rn-incoming-call-nitro",
   "version": "0.1.0",
   "description": "incoming-call",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
     ".": {
-      "react-native-incoming-call-source": "./src/index.tsx",
+      "rn-incoming-call-nitro-source": "./src/index.tsx",
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
