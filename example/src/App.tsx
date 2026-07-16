@@ -10,7 +10,7 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
-import { useIncomingCall } from 'rn-incoming-call-nitro';
+import { useIncomingCall, show, dismiss, on, off, backToApp } from 'rn-incoming-call-nitro';
 
 interface LogEntry {
   timestamp: string;
@@ -20,6 +20,7 @@ interface LogEntry {
 
 export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<'hooks' | 'functions'>('hooks');
 
   const addLog = (message: string, type: 'info' | 'success' | 'danger' = 'info') => {
     const now = new Date();
@@ -27,24 +28,8 @@ export default function App() {
     setLogs((prev) => [{ timestamp: timeStr, message, type }, ...prev]);
   };
 
-  const { isActive, callUUID, show, dismiss, backToApp } = useIncomingCall({
-    onAnswer: (payload) => {
-      addLog(`📞 Call Answered! UUID: ${payload.callUUID}`, 'success');
-      Alert.alert(
-        'Call Answered',
-        `UUID: ${payload.callUUID}\nPayload: ${JSON.stringify(payload.payload)}`
-      );
-      // Bring the app back to foreground (optional)
-      backToApp();
-    },
-    onEndCall: (payload) => {
-      addLog(`❌ Call Ended/Declined (Action: ${payload.endAction})`, 'danger');
-      Alert.alert('Call Declined', `UUID: ${payload.callUUID}\nAction: ${payload.endAction}`);
-    },
-  });
-
   useEffect(() => {
-    addLog('IncomingCall module initialized using custom hooks', 'info');
+    addLog('App mounted. Checking permissions...', 'info');
 
     const requestPermissions = async () => {
       if (Platform.OS === 'android' && Platform.Version >= 33) {
@@ -67,37 +52,6 @@ export default function App() {
     requestPermissions();
   }, []);
 
-  const triggerIncomingCall = () => {
-    const uuid = Math.random().toString(36).substring(2, 9);
-    addLog(`Triggering incoming call... (UUID: ${uuid})`, 'info');
-
-    show(
-      uuid,
-      'https://i.pravatar.cc/300', // Beautiful random avatar url
-      15000, // Timeout after 15 seconds
-      {
-        channelId: 'incoming_call_channel',
-        channelName: 'Incoming Calls',
-        notificationIcon: 'ic_launcher', // fallback to app icon
-        notificationTitle: 'Kiattisak Jomram',
-        notificationBody: 'Incoming video call...',
-        answerText: 'Accept Call',
-        declineText: 'Decline',
-        isVideo: true,
-        notificationColor: 'colorAccent', // refers to colors.xml resource
-        payload: {
-          callerId: 'user_kiattisak_123',
-          chatRoom: 'room_call_abc',
-        },
-      }
-    );
-  };
-
-  const cancelCall = () => {
-    addLog('Manually dismissing notification', 'info');
-    dismiss();
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -107,31 +61,36 @@ export default function App() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Trigger Controls</Text>
-        <Text style={styles.cardDesc}>
-          Simulate a background fullscreen incoming call on Android. Test triggers, sounds, timeouts, and callbacks.
-        </Text>
-
-        <View style={styles.statusCard}>
-          <Text style={styles.statusLabel}>Hook State:</Text>
-          <Text
-            style={[
-              styles.statusText,
-              isActive ? styles.statusActive : styles.statusInactive,
-            ]}
+        
+        {/* Tab Selector */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'hooks' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('hooks')}
           >
-            {isActive ? `📞 ACTIVE (UUID: ${callUUID})` : '💤 INACTIVE'}
-          </Text>
+            <Text style={[styles.tabButtonText, activeTab === 'hooks' && styles.tabButtonTextActive]}>
+              1. React Hooks
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tabButton, activeTab === 'functions' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('functions')}
+          >
+            <Text style={[styles.tabButtonText, activeTab === 'functions' && styles.tabButtonTextActive]}>
+              2. Direct Functions
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={triggerIncomingCall}>
-          <Text style={styles.primaryButtonText}>Show Incoming Call</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.secondaryButton} onPress={cancelCall}>
-          <Text style={styles.secondaryButtonText}>Dismiss Notification</Text>
-        </TouchableOpacity>
+        {activeTab === 'hooks' ? (
+          <HookDemoView addLog={addLog} />
+        ) : (
+          <DirectFunctionDemoView addLog={addLog} />
+        )}
       </View>
 
+      {/* Live Event Logs */}
       <View style={[styles.card, styles.logCard]}>
         <View style={styles.logHeader}>
           <Text style={styles.cardTitle}>Live Event Logs</Text>
@@ -164,6 +123,153 @@ export default function App() {
         )}
       </View>
     </SafeAreaView>
+  );
+}
+
+// ==========================================
+// 1. DEMO VIEW USING CUSTOM HOOKS
+// ==========================================
+interface DemoViewProps {
+  addLog: (message: string, type?: 'info' | 'success' | 'danger') => void;
+}
+
+function HookDemoView({ addLog }: DemoViewProps) {
+  const { isActive, callUUID, show, dismiss } = useIncomingCall({
+    onAnswer: (payload) => {
+      addLog(`[Hook] 📞 Call Answered! UUID: ${payload.callUUID}`, 'success');
+      Alert.alert(
+        'Call Answered',
+        `UUID: ${payload.callUUID}\nPayload: ${JSON.stringify(payload.payload)}`
+      );
+      backToApp();
+    },
+    onEndCall: (payload) => {
+      addLog(`[Hook] ❌ Call Ended (Action: ${payload.endAction})`, 'danger');
+      Alert.alert('Call Declined', `UUID: ${payload.callUUID}\nAction: ${payload.endAction}`);
+    },
+  });
+
+  const triggerCall = () => {
+    const uuid = Math.random().toString(36).substring(2, 9);
+    addLog(`[Hook] Showing call... (UUID: ${uuid})`, 'info');
+
+    show(uuid, 'https://i.pravatar.cc/300', 15000, {
+      channelId: 'incoming_call_channel',
+      channelName: 'Incoming Calls',
+      notificationIcon: 'ic_launcher',
+      notificationTitle: 'Kiattisak Jomram (Hook)',
+      notificationBody: 'Incoming call via useIncomingCall...',
+      answerText: 'Accept Call',
+      declineText: 'Decline',
+      isVideo: true,
+    });
+  };
+
+  return (
+    <View style={styles.demoContainer}>
+      <Text style={styles.demoDesc}>
+        Highly recommended for standard UI screens. The custom hook manages callbacks, updates state reactivity, and handles automatic cleanup on unmount.
+      </Text>
+
+      <View style={styles.statusCard}>
+        <Text style={styles.statusLabel}>Hook State:</Text>
+        <Text style={[styles.statusText, isActive ? styles.statusActive : styles.statusInactive]}>
+          {isActive ? `📞 ACTIVE (UUID: ${callUUID})` : '💤 INACTIVE'}
+        </Text>
+      </View>
+
+      <TouchableOpacity style={styles.primaryButton} onPress={triggerCall}>
+        <Text style={styles.primaryButtonText}>Show Call (Hook)</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.secondaryButton} onPress={dismiss}>
+        <Text style={styles.secondaryButtonText}>Dismiss Notification</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ==========================================
+// 2. DEMO VIEW USING DIRECT FUNCTIONS
+// ==========================================
+function DirectFunctionDemoView({ addLog }: DemoViewProps) {
+  const [isActive, setIsActive] = useState(false);
+  const [callUUID, setCallUUID] = useState<string | null>(null);
+
+  useEffect(() => {
+    addLog('[Direct] Subscribing to events manually via on()', 'info');
+
+    on('answer', (payload) => {
+      setIsActive(false);
+      setCallUUID(null);
+      addLog(`[Direct] 📞 Call Answered! UUID: ${payload.callUUID}`, 'success');
+      Alert.alert(
+        'Call Answered',
+        `UUID: ${payload.callUUID}\nPayload: ${JSON.stringify(payload.payload)}`
+      );
+      backToApp();
+    });
+
+    on('endCall', (payload) => {
+      setIsActive(false);
+      setCallUUID(null);
+      addLog(`[Direct] ❌ Call Ended (Action: ${payload.endAction})`, 'danger');
+      Alert.alert('Call Declined', `UUID: ${payload.callUUID}\nAction: ${payload.endAction}`);
+    });
+
+    return () => {
+      addLog('[Direct] Unsubscribing manually via off()', 'info');
+      off('answer');
+      off('endCall');
+    };
+  }, []);
+
+  const triggerCall = () => {
+    const uuid = Math.random().toString(36).substring(2, 9);
+    setCallUUID(uuid);
+    setIsActive(true);
+    addLog(`[Direct] Showing call... (UUID: ${uuid})`, 'info');
+
+    show(uuid, 'https://i.pravatar.cc/300', 15000, {
+      channelId: 'incoming_call_channel',
+      channelName: 'Incoming Calls',
+      notificationIcon: 'ic_launcher',
+      notificationTitle: 'Kiattisak Jomram (Direct)',
+      notificationBody: 'Incoming call via direct function...',
+      answerText: 'Accept Call',
+      declineText: 'Decline',
+      isVideo: true,
+    });
+  };
+
+  const cancelCall = () => {
+    setIsActive(false);
+    setCallUUID(null);
+    addLog('[Direct] Dismissing call...', 'info');
+    dismiss();
+  };
+
+  return (
+    <View style={styles.demoContainer}>
+      <Text style={styles.demoDesc}>
+        Required for background tasks or Headless JS contexts where React hooks cannot run. Requires manual event subscriptions, state tracking, and cleanup.
+      </Text>
+
+      <View style={styles.statusCard}>
+        <Text style={styles.statusLabel}>Manual State:</Text>
+        <Text style={[styles.statusText, isActive ? styles.statusActive : styles.statusInactive]}>
+          {isActive ? `📞 ACTIVE (UUID: ${callUUID})` : '💤 INACTIVE'}
+        </Text>
+      </View>
+
+      <TouchableOpacity style={styles.primaryButton} onPress={triggerCall}>
+        <Text style={styles.primaryButtonText}>Show Call (Direct Functions)</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.secondaryButton} onPress={cancelCall}>
+        <Text style={styles.secondaryButtonText}>Dismiss Notification</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -203,11 +309,41 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 8,
   },
-  cardDesc: {
-    fontSize: 14,
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#0D0E15',
+    borderRadius: 10,
+    padding: 4,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: '#232536',
+  },
+  tabButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabButtonActive: {
+    backgroundColor: '#6A1B9A',
+  },
+  tabButtonText: {
+    fontSize: 13,
     color: '#808290',
-    lineHeight: 20,
-    marginBottom: 20,
+    fontWeight: '600',
+  },
+  tabButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  demoContainer: {
+    marginTop: 8,
+  },
+  demoDesc: {
+    fontSize: 13,
+    color: '#808290',
+    lineHeight: 18,
+    marginBottom: 16,
   },
   statusCard: {
     flexDirection: 'row',
@@ -226,7 +362,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   statusText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
   },
   statusActive: {
@@ -317,4 +453,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
 
