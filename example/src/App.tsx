@@ -10,7 +10,7 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
-import { show, dismiss, on, off, backToApp } from 'rn-incoming-call-nitro';
+import { useIncomingCall } from 'rn-incoming-call-nitro';
 
 interface LogEntry {
   timestamp: string;
@@ -27,8 +27,24 @@ export default function App() {
     setLogs((prev) => [{ timestamp: timeStr, message, type }, ...prev]);
   };
 
+  const { isActive, callUUID, show, dismiss, backToApp } = useIncomingCall({
+    onAnswer: (payload) => {
+      addLog(`📞 Call Answered! UUID: ${payload.callUUID}`, 'success');
+      Alert.alert(
+        'Call Answered',
+        `UUID: ${payload.callUUID}\nPayload: ${JSON.stringify(payload.payload)}`
+      );
+      // Bring the app back to foreground (optional)
+      backToApp();
+    },
+    onEndCall: (payload) => {
+      addLog(`❌ Call Ended/Declined (Action: ${payload.endAction})`, 'danger');
+      Alert.alert('Call Declined', `UUID: ${payload.callUUID}\nAction: ${payload.endAction}`);
+    },
+  });
+
   useEffect(() => {
-    addLog('IncomingCall module initialized', 'info');
+    addLog('IncomingCall module initialized using custom hooks', 'info');
 
     const requestPermissions = async () => {
       if (Platform.OS === 'android' && Platform.Version >= 33) {
@@ -49,27 +65,6 @@ export default function App() {
       }
     };
     requestPermissions();
-
-    // Subscribe to call answer event
-    on('answer', (payload) => {
-      addLog(`📞 Call Answered! UUID: ${payload.callUUID}`, 'success');
-      Alert.alert('Call Answered', `UUID: ${payload.callUUID}\nPayload: ${JSON.stringify(payload.payload)}`);
-      
-      // Bring the app back to foreground (optional)
-      backToApp();
-    });
-
-    // Subscribe to call end/decline/timeout event
-    on('endCall', (payload) => {
-      addLog(`❌ Call Ended/Declined (Action: ${payload.endAction})`, 'danger');
-      Alert.alert('Call Declined', `UUID: ${payload.callUUID}\nAction: ${payload.endAction}`);
-    });
-
-    return () => {
-      // Unsubscribe on unmount
-      off('answer');
-      off('endCall');
-    };
   }, []);
 
   const triggerIncomingCall = () => {
@@ -115,6 +110,18 @@ export default function App() {
         <Text style={styles.cardDesc}>
           Simulate a background fullscreen incoming call on Android. Test triggers, sounds, timeouts, and callbacks.
         </Text>
+
+        <View style={styles.statusCard}>
+          <Text style={styles.statusLabel}>Hook State:</Text>
+          <Text
+            style={[
+              styles.statusText,
+              isActive ? styles.statusActive : styles.statusInactive,
+            ]}
+          >
+            {isActive ? `📞 ACTIVE (UUID: ${callUUID})` : '💤 INACTIVE'}
+          </Text>
+        </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={triggerIncomingCall}>
           <Text style={styles.primaryButtonText}>Show Incoming Call</Text>
@@ -202,6 +209,32 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 20,
   },
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1D2A',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#2D2F44',
+  },
+  statusLabel: {
+    fontSize: 14,
+    color: '#808290',
+    marginRight: 8,
+    fontWeight: '600',
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  statusActive: {
+    color: '#4CAF50',
+  },
+  statusInactive: {
+    color: '#808290',
+  },
   primaryButton: {
     backgroundColor: '#6A1B9A',
     height: 52,
@@ -284,3 +317,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
