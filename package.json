@@ -47,7 +47,15 @@
   "keywords": [
     "react-native",
     "ios",
-    "android"
+    "android",
+    "incoming-call",
+    "incoming",
+    "call",
+    "nitro",
+    "react-native-nitro-modules",
+    "callkit",
+    "connectionservice",
+    "voip"
   ],
   "repository": {
     "type": "git",
