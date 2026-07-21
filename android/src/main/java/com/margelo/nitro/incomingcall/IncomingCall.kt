@@ -97,4 +97,12 @@ class IncomingCall : HybridIncomingCallSpec() {
             activity?.startActivity(focusIntent)
         }
     }
+
+    override fun registerVoipPush() {
+        // iOS only — no-op on Android
+    }
+
+    override fun unregisterVoipPush() {
+        // iOS only — no-op on Android
+    }
 }
