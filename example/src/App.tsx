@@ -10,7 +10,15 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
-import { useIncomingCall, show, dismiss, on, off, backToApp } from 'rn-incoming-call-nitro';
+import { useIncomingCall, show, dismiss, on, off, backToApp, registerVoipPush, onVoipToken, offVoipToken } from 'rn-incoming-call-nitro';
+
+function createCallUuid(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 interface LogEntry {
   timestamp: string;
@@ -50,13 +58,33 @@ export default function App() {
       }
     };
     requestPermissions();
+
+    if (Platform.OS === 'ios') {
+      onVoipToken((payload) => {
+        addLog('[iOS] VoIP token registered (send to your backend over HTTPS)', 'info');
+        if (__DEV__) {
+          addLog(`[iOS] Token length: ${payload.token.length}`, 'info');
+        }
+      });
+      registerVoipPush();
+      addLog('[iOS] CallKit + PushKit registration started', 'info');
+    }
+
+    return () => {
+      if (Platform.OS === 'ios') {
+        offVoipToken();
+      }
+    };
   }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Incoming Call</Text>
-        <Text style={styles.headerSubtitle}>Nitro Module Interactive Test App</Text>
+        <Text style={styles.headerSubtitle}>
+          Nitro Module Interactive Test App
+          {Platform.OS === 'ios' ? ' · iOS uses system CallKit UI' : ''}
+        </Text>
       </View>
 
       <View style={styles.card}>
@@ -134,7 +162,7 @@ interface DemoViewProps {
 }
 
 function HookDemoView({ addLog }: DemoViewProps) {
-  const { isActive, callUUID, show, dismiss } = useIncomingCall({
+  const { isActive, callUUID, activeCallCount, show, dismiss } = useIncomingCall({
     onAnswer: (payload) => {
       addLog(`[Hook] 📞 Call Answered! UUID: ${payload.callUUID}`, 'success');
       Alert.alert(
@@ -150,8 +178,14 @@ function HookDemoView({ addLog }: DemoViewProps) {
   });
 
   const triggerCall = () => {
-    const uuid = Math.random().toString(36).substring(2, 9);
+    const uuid = createCallUuid();
     addLog(`[Hook] Showing call... (UUID: ${uuid})`, 'info');
+    if (Platform.OS === 'ios') {
+      addLog(
+        '[iOS] CallKit is system UI — use a physical device; on Simulator it often does not appear while this app is foreground.',
+        'info'
+      );
+    }
 
     show(uuid, 'https://i.pravatar.cc/300', 15000, {
       channelId: 'incoming_call_channel',
@@ -174,7 +208,9 @@ function HookDemoView({ addLog }: DemoViewProps) {
       <View style={styles.statusCard}>
         <Text style={styles.statusLabel}>Hook State:</Text>
         <Text style={[styles.statusText, isActive ? styles.statusActive : styles.statusInactive]}>
-          {isActive ? `📞 ACTIVE (UUID: ${callUUID})` : '💤 INACTIVE'}
+          {isActive
+            ? `📞 ACTIVE (${activeCallCount} stacked, latest: ${callUUID})`
+            : '💤 INACTIVE'}
         </Text>
       </View>
 
@@ -225,10 +261,16 @@ function DirectFunctionDemoView({ addLog }: DemoViewProps) {
   }, []);
 
   const triggerCall = () => {
-    const uuid = Math.random().toString(36).substring(2, 9);
+    const uuid = createCallUuid();
     setCallUUID(uuid);
     setIsActive(true);
     addLog(`[Direct] Showing call... (UUID: ${uuid})`, 'info');
+    if (Platform.OS === 'ios') {
+      addLog(
+        '[iOS] CallKit is system UI — use a physical device; Simulator may not show incoming UI in foreground.',
+        'info'
+      );
+    }
 
     show(uuid, 'https://i.pravatar.cc/300', 15000, {
       channelId: 'incoming_call_channel',
