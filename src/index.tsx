@@ -1,5 +1,5 @@
 import { incomingCall } from './infrastructure/IncomingCallBridge';
-import type { IncomingCallNotificationOptions, IncomingCallEventMap } from './domain/types';
+import type { IncomingCallNotificationOptions, IncomingCallEventMap, VoipTokenPayload } from './domain/types';
 
 // Concrete wrapper functions for backward compatibility
 export function show(
@@ -36,6 +36,22 @@ export function on<T extends keyof IncomingCallEventMap>(
 
 export function off(type: keyof IncomingCallEventMap): void {
   incomingCall.off(type);
+}
+
+export function registerVoipPush(): void {
+  incomingCall.registerVoipPush();
+}
+
+export function unregisterVoipPush(): void {
+  incomingCall.unregisterVoipPush();
+}
+
+export function onVoipToken(handler: (payload: VoipTokenPayload) => void): void {
+  incomingCall.onVoipToken(handler);
+}
+
+export function offVoipToken(): void {
+  incomingCall.offVoipToken();
 }
 
 // Export Domain Types & Ports
