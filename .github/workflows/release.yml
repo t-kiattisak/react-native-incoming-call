@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'Release Type'
+        description: 'Release type (patch/minor/major → npm latest; prerelease → beta/rc tag)'
         required: true
         default: 'patch'
         type: choice
@@ -13,8 +13,16 @@ on:
           - minor
           - major
           - prerelease
+      pre_release_channel:
+        description: 'Pre-release channel (used only when release type is prerelease)'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+          - beta
+          - rc
       dry_run:
-        description: 'Dry Run (Test without releasing/publishing)'
+        description: 'Dry run (no commit, tag, publish, or GitHub release)'
         required: false
         default: false
         type: boolean
@@ -25,7 +33,7 @@ concurrency:
 
 jobs:
   release:
-    name: Release (${{ inputs.release_type }})
+    name: Release (${{ inputs.release_type }}${{ inputs.release_type == 'prerelease' && format('-{0}', inputs.pre_release_channel) || '' }})
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -41,40 +49,68 @@ jobs:
       - name: Setup Node & Dependencies
         uses: ./.github/actions/setup
 
+      - name: Configure npm registry for publish
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Typecheck
         run: yarn typecheck
 
       - name: Build Package
         run: yarn prepare
 
-      - name: Setup NPM Authentication
+      - name: Verify npm publish access
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -z "$NPM_TOKEN" ]; then
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
             echo "::error::NPM_TOKEN repository secret is not set"
             exit 1
           fi
-          npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN" --location=user
-          npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN" --location=project
+          echo "npm user: $(npm whoami --registry=https://registry.npmjs.org)"
+          npm access list collaborators rn-incoming-call-nitro --registry=https://registry.npmjs.org
 
       - name: Configure Git User
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Release (Dry Run)
-        if: ${{ inputs.dry_run == true }}
+      - name: Release stable (dry run)
+        if: ${{ inputs.dry_run == true && inputs.release_type != 'prerelease' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: yarn release ${{ inputs.release_type }} --dry-run --npm.skipChecks
+        run: yarn release ${{ inputs.release_type }} --dry-run --npm.skipChecks --npm.tag=latest
 
-      - name: Release (Production)
-        if: ${{ inputs.dry_run == false }}
+      - name: Release pre-release (dry run)
+        if: ${{ inputs.dry_run == true && inputs.release_type == 'prerelease' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: yarn release ${{ inputs.release_type }} --ci --npm.skipChecks --npm.publishArgs="--registry=https://registry.npmjs.org"
+        run: >-
+          yarn release prerelease
+          --dry-run
+          --npm.skipChecks
+          --npm.tag=${{ inputs.pre_release_channel }}
+          --preReleaseId=${{ inputs.pre_release_channel }}
+          --github.preRelease
+
+      - name: Release stable (production)
+        if: ${{ inputs.dry_run == false && inputs.release_type != 'prerelease' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn release ${{ inputs.release_type }} --ci --npm.skipChecks --npm.tag=latest
+
+      - name: Release pre-release (production)
+        if: ${{ inputs.dry_run == false && inputs.release_type == 'prerelease' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          yarn release prerelease
+          --ci
+          --npm.skipChecks
+          --npm.tag=${{ inputs.pre_release_channel }}
+          --preReleaseId=${{ inputs.pre_release_channel }}
+          --github.preRelease

@@ -9,7 +9,8 @@
     "releaseName": "v${version}"
   },
   "npm": {
-    "publish": true
+    "publish": true,
+    "preReleaseId": "beta"
   },
   "plugins": {
     "@release-it/conventional-changelog": {
