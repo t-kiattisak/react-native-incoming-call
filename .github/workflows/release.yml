@@ -49,19 +49,14 @@ jobs:
       - name: Setup Node & Dependencies
         uses: ./.github/actions/setup
 
-      - name: Configure npm authentication
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::NPM_TOKEN repository secret is not set"
-            exit 1
-          fi
-          rm -f .npmrc
-          {
-            echo "registry=https://registry.npmjs.org/"
-            echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
-          } >> "$HOME/.npmrc"
+      # npm Trusted Publishing (OIDC) — configure the same workflow file on npmjs.com:
+      # Package → Settings → Trusted publishing → GitHub Actions
+      #   org/user: t-kiattisak, repo: react-native-incoming-call, workflow: release.yml
+      - name: Setup npm OIDC for publish
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
 
       - name: Typecheck
         run: yarn typecheck
@@ -69,16 +64,22 @@ jobs:
       - name: Build Package
         run: yarn prepare
 
-      - name: Verify npm publish access
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Verify npm CLI for trusted publishing
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::error::NPM_TOKEN repository secret is not set"
-            exit 1
-          fi
-          echo "npm user: $(npm whoami --registry=https://registry.npmjs.org)"
-          npm access list collaborators rn-incoming-call-nitro --registry=https://registry.npmjs.org
+          echo "Node $(node --version), npm $(npm --version)"
+          node <<'EOF'
+          const { execSync } = require('child_process');
+          const npmVersion = execSync('npm --version', { encoding: 'utf8' }).trim();
+          const parts = npmVersion.split('.').map(Number);
+          const ok =
+            parts[0] > 11 ||
+            (parts[0] === 11 && parts[1] > 5) ||
+            (parts[0] === 11 && parts[1] === 5 && parts[2] >= 1);
+          if (!ok) {
+            console.error(`::error::Trusted publishing requires npm >= 11.5.1 (found ${npmVersion})`);
+            process.exit(1);
+          }
+          EOF
 
       - name: Configure Git User
         run: |
@@ -92,7 +93,6 @@ jobs:
         run: |
           set -euo pipefail
           PKG=$(node -p "require('./package.json').name")
-          rm -f .npmrc
 
           if [ "${{ inputs.release_type }}" = "prerelease" ]; then
             TARGET=$(yarn release prerelease --release-version --npm.skipChecks \
@@ -106,7 +106,6 @@ jobs:
           if npm view "${PKG}@${TARGET}" version --registry=https://registry.npmjs.org 2>/dev/null | grep -qx "${TARGET}"; then
             echo "::error::Version ${TARGET} is already on npm — publish would fail."
             echo "::error::Bump package.json in git to match npm, or use patch/minor/major for the next version."
-            echo "::error::If only git/tag is missing, run: yarn release ${TARGET} --ci --no-increment --no-npm.publish"
             exit 1
           fi
 
@@ -132,16 +131,13 @@ jobs:
         if: ${{ inputs.dry_run == false && inputs.release_type != 'prerelease' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          rm -f .npmrc
-          yarn release ${{ inputs.release_type }} --ci --npm.skipChecks --npm.tag=latest
+        run: yarn release ${{ inputs.release_type }} --ci --npm.skipChecks --npm.tag=latest
 
       - name: Release pre-release (production)
         if: ${{ inputs.dry_run == false && inputs.release_type == 'prerelease' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          rm -f .npmrc
           yarn release prerelease \
             --ci \
             --npm.skipChecks \
