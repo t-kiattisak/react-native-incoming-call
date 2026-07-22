@@ -51,10 +51,12 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -n "$NPM_TOKEN" ]; then
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::error::NPM_TOKEN repository secret is not set"
+            exit 1
           fi
+          npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN" --location=user
+          npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN" --location=project
 
       - name: Configure Git User
         run: |
@@ -67,7 +69,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: yarn release ${{ inputs.release_type }} --dry-run --no-npm.prerequisiteCheck
+        run: yarn release ${{ inputs.release_type }} --dry-run --npm.skipChecks
 
       - name: Release (Production)
         if: ${{ inputs.dry_run == false }}
@@ -75,4 +77,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: yarn release ${{ inputs.release_type }} --ci
+        run: yarn release ${{ inputs.release_type }} --ci --npm.skipChecks --npm.publishArgs="--registry=https://registry.npmjs.org"
