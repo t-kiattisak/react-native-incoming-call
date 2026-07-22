@@ -74,7 +74,8 @@ import UIKit
     isVideo: Bool,
     payloadJson: String?,
     timeoutMs: Int,
-    sourceIsPush: Bool
+    sourceIsPush: Bool,
+    completion: (() -> Void)? = nil
   ) {
     sessionLock.lock()
     if sessions[uuid] != nil {
@@ -82,11 +83,13 @@ import UIKit
       #if DEBUG
         NSLog("[IncomingCall] Ignoring duplicate incoming UUID")
       #endif
+      completion?()
       return
     }
     if sessions.count >= Self.maxSessions {
       sessionLock.unlock()
       NSLog("[IncomingCall] Session cap reached (%d)", Self.maxSessions)
+      completion?()
       return
     }
     sessionLock.unlock()
@@ -97,13 +100,18 @@ import UIKit
     update.hasVideo = isVideo
 
     let reportBlock = { [weak self] in
-      guard let self else { return }
+      guard let self else {
+        completion?()
+        return
+      }
       self.configureProviderIfNeeded()
       guard let provider = self.provider else {
         NSLog("[IncomingCall] CXProvider is nil after configuration")
+        completion?()
         return
       }
       provider.reportNewIncomingCall(with: uuid, update: update) { error in
+        defer { completion?() }
         if let error {
           NSLog(
             "[IncomingCall] reportNewIncomingCall failed: %@",

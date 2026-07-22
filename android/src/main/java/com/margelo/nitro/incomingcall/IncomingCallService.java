@@ -46,8 +46,8 @@ import java.net.MalformedURLException;
 
 
 public class IncomingCallService extends Service {
-  private static Runnable handleTimeout;
-  public static Handler callhandle;
+  private Runnable handleTimeout;
+  private Handler callhandle;
   private String uuid = "";
   private Integer timeoutNumber = 0;
   private boolean isRegistered = false;
@@ -111,25 +111,34 @@ public class IncomingCallService extends Service {
   }
 
   private void handleNotificationWithAvatar(Bundle bundle, Intent intent) {
-    String avatarUrl = bundle.getString("avatar", null);
+    // Immediately start foreground service to comply with Android 12+/14+ strict service start timeout
+    startForegroundWithNotification(intent, null);
 
-    if (avatarUrl != null) {
-      loadAvatarAndStartForeground(avatarUrl, intent);
-    } else {
-      startForegroundWithNotification(intent, null);
+    String avatarUrl = bundle != null ? bundle.getString("avatar", null) : null;
+    if (avatarUrl != null && !avatarUrl.isEmpty()) {
+      loadAvatarAndUpdateNotification(avatarUrl, intent);
     }
   }
 
-  private void loadAvatarAndStartForeground(String avatarUrl, Intent intent) {
+  private void loadAvatarAndUpdateNotification(String avatarUrl, Intent intent) {
     Picasso.get().load(avatarUrl).transform(new CircleTransform()).into(new Target() {
       @Override
       public void onBitmapLoaded(Bitmap bitmap, Picasso.LoadedFrom from) {
-        startForegroundWithNotification(intent, CircleTransform.transformWithRecycle(bitmap,false));
+        try {
+          Bitmap avatarBitmap = CircleTransform.transformWithRecycle(bitmap, false);
+          Notification updatedNotification = buildNotification(getApplicationContext(), intent, avatarBitmap);
+          NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+          if (notificationManager != null) {
+            notificationManager.notify(1, updatedNotification);
+          }
+        } catch (Exception e) {
+          Log.e(TAG, "Failed to update notification avatar", e);
+        }
       }
 
       @Override
       public void onBitmapFailed(Exception e, Drawable errorDrawable) {
-        startForegroundWithNotification(intent, null);
+        // Fallback notification is already active in foreground
       }
 
       @Override
@@ -265,8 +274,8 @@ public class IncomingCallService extends Service {
     String customSound = bundle.getString("notificationSound");
     Uri soundUri = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE);
 
-    if (customSound != null) {
-      soundUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + File.pathSeparator + File.separator + File.separator + context.getPackageName() + "/raw/" + customSound);
+    if (customSound != null && !customSound.isEmpty()) {
+      soundUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + context.getPackageName() + "/raw/" + customSound);
     }
 
     return soundUri;
@@ -350,8 +359,9 @@ public class IncomingCallService extends Service {
   }
 
   public void cancelTimer() {
-    if (handleTimeout != null) {
+    if (callhandle != null && handleTimeout != null) {
       callhandle.removeCallbacks(handleTimeout);
+      handleTimeout = null;
     }
   }
 
