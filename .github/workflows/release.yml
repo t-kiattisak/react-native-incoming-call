@@ -136,24 +136,24 @@ jobs:
             --preReleaseId=${{ inputs.pre_release_channel }} \
             --github.preRelease
 
-      # Trusted Publishing (OIDC): npmjs.com → package Settings → Trusted publishing
-      # GitHub Actions: t-kiattisak / react-native-incoming-call / release.yml / npm publish
-      - name: Publish to npm (OIDC)
+      # Trusted Publishing: npmjs.com → Trusted publishing → GitHub Actions
+      # Organization/user MUST be GitHub username "t-kiattisak" (NOT email), repo react-native-incoming-call, workflow release.yml
+      - name: Configure npm OIDC for publish
+        if: ${{ inputs.dry_run == false }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish to npm
         if: ${{ inputs.dry_run == false }}
         run: |
           set -euo pipefail
-          rm -f .npmrc
-          unset NODE_AUTH_TOKEN NPM_TOKEN || true
-          export NPM_CONFIG_USERCONFIG="${RUNNER_TEMP}/npm-oidc-user.rc"
-          export NPM_CONFIG_PROJECTCONFIG=/dev/null
-          echo "registry=https://registry.npmjs.org/" > "$NPM_CONFIG_USERCONFIG"
-
           if [ "${{ inputs.release_type }}" = "prerelease" ]; then
             NPM_DIST_TAG="${{ inputs.pre_release_channel }}"
           else
             NPM_DIST_TAG="latest"
           fi
-
           VERSION=$(node -p "require('./package.json').version")
-          echo "Publishing ${VERSION} with dist-tag ${NPM_DIST_TAG} via OIDC..."
+          echo "Publishing ${VERSION} with dist-tag ${NPM_DIST_TAG}..."
           npm publish --tag "${NPM_DIST_TAG}"
