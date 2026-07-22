@@ -49,13 +49,19 @@ jobs:
       - name: Setup Node & Dependencies
         uses: ./.github/actions/setup
 
-      - name: Configure npm registry for publish
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version-file: .nvmrc
-          registry-url: https://registry.npmjs.org
+      - name: Configure npm authentication
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::NPM_TOKEN repository secret is not set"
+            exit 1
+          fi
+          rm -f .npmrc
+          {
+            echo "registry=https://registry.npmjs.org/"
+            echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
+          } >> "$HOME/.npmrc"
 
       - name: Typecheck
         run: yarn typecheck
@@ -79,6 +85,31 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Ensure release version is not already on npm
+        if: ${{ inputs.dry_run == false }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PKG=$(node -p "require('./package.json').name")
+          rm -f .npmrc
+
+          if [ "${{ inputs.release_type }}" = "prerelease" ]; then
+            TARGET=$(yarn release prerelease --release-version --npm.skipChecks \
+              --preReleaseId=${{ inputs.pre_release_channel }} | tail -1)
+          else
+            TARGET=$(yarn release ${{ inputs.release_type }} --release-version --npm.skipChecks | tail -1)
+          fi
+
+          echo "Planned release version: ${TARGET}"
+
+          if npm view "${PKG}@${TARGET}" version --registry=https://registry.npmjs.org 2>/dev/null | grep -qx "${TARGET}"; then
+            echo "::error::Version ${TARGET} is already on npm — publish would fail."
+            echo "::error::Bump package.json in git to match npm, or use patch/minor/major for the next version."
+            echo "::error::If only git/tag is missing, run: yarn release ${TARGET} --ci --no-increment --no-npm.publish"
+            exit 1
+          fi
+
       - name: Release stable (dry run)
         if: ${{ inputs.dry_run == true && inputs.release_type != 'prerelease' }}
         env:
@@ -101,16 +132,19 @@ jobs:
         if: ${{ inputs.dry_run == false && inputs.release_type != 'prerelease' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn release ${{ inputs.release_type }} --ci --npm.skipChecks --npm.tag=latest
+        run: |
+          rm -f .npmrc
+          yarn release ${{ inputs.release_type }} --ci --npm.skipChecks --npm.tag=latest
 
       - name: Release pre-release (production)
         if: ${{ inputs.dry_run == false && inputs.release_type == 'prerelease' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >-
-          yarn release prerelease
-          --ci
-          --npm.skipChecks
-          --npm.tag=${{ inputs.pre_release_channel }}
-          --preReleaseId=${{ inputs.pre_release_channel }}
-          --github.preRelease
+        run: |
+          rm -f .npmrc
+          yarn release prerelease \
+            --ci \
+            --npm.skipChecks \
+            --npm.tag=${{ inputs.pre_release_channel }} \
+            --preReleaseId=${{ inputs.pre_release_channel }} \
+            --github.preRelease
