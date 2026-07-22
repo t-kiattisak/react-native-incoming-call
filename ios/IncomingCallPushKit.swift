@@ -83,9 +83,9 @@ import PushKit
         isVideo: validated.isVideo,
         payloadJson: validated.payloadJson,
         timeoutMs: validated.timeoutMs,
-        sourceIsPush: true
+        sourceIsPush: true,
+        completion: completion
       )
-      completion()
     }
   }
 }
