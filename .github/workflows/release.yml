@@ -49,15 +49,6 @@ jobs:
       - name: Setup Node & Dependencies
         uses: ./.github/actions/setup
 
-      # npm Trusted Publishing (OIDC) — configure the same workflow file on npmjs.com:
-      # Package → Settings → Trusted publishing → GitHub Actions
-      #   org/user: t-kiattisak, repo: react-native-incoming-call, workflow: release.yml
-      - name: Setup npm OIDC for publish
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version-file: .nvmrc
-          registry-url: https://registry.npmjs.org
-
       - name: Typecheck
         run: yarn typecheck
 
@@ -131,7 +122,7 @@ jobs:
         if: ${{ inputs.dry_run == false && inputs.release_type != 'prerelease' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn release ${{ inputs.release_type }} --ci --npm.skipChecks --npm.tag=latest
+        run: yarn release ${{ inputs.release_type }} --ci --npm.skipChecks --no-npm.publish
 
       - name: Release pre-release (production)
         if: ${{ inputs.dry_run == false && inputs.release_type == 'prerelease' }}
@@ -141,6 +132,28 @@ jobs:
           yarn release prerelease \
             --ci \
             --npm.skipChecks \
-            --npm.tag=${{ inputs.pre_release_channel }} \
+            --no-npm.publish \
             --preReleaseId=${{ inputs.pre_release_channel }} \
             --github.preRelease
+
+      # Trusted Publishing (OIDC): npmjs.com → package Settings → Trusted publishing
+      # GitHub Actions: t-kiattisak / react-native-incoming-call / release.yml / npm publish
+      - name: Publish to npm (OIDC)
+        if: ${{ inputs.dry_run == false }}
+        run: |
+          set -euo pipefail
+          rm -f .npmrc
+          unset NODE_AUTH_TOKEN NPM_TOKEN || true
+          export NPM_CONFIG_USERCONFIG="${RUNNER_TEMP}/npm-oidc-user.rc"
+          export NPM_CONFIG_PROJECTCONFIG=/dev/null
+          echo "registry=https://registry.npmjs.org/" > "$NPM_CONFIG_USERCONFIG"
+
+          if [ "${{ inputs.release_type }}" = "prerelease" ]; then
+            NPM_DIST_TAG="${{ inputs.pre_release_channel }}"
+          else
+            NPM_DIST_TAG="latest"
+          fi
+
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Publishing ${VERSION} with dist-tag ${NPM_DIST_TAG} via OIDC..."
+          npm publish --tag "${NPM_DIST_TAG}"
