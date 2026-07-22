@@ -28,3 +28,7 @@ export interface IncomingCallEventMap {
   answer: CallAnswerPayload;
   endCall: CallDeclinePayload;
 }
+
+export interface VoipTokenPayload {
+  token: string;
+}

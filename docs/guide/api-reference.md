@@ -4,11 +4,40 @@ This page describes all the exported methods, options, and types for `react-nati
 
 ---
 
+## Internal architecture (TypeScript)
+
+The public API is implemented as a thin **facade** ([`IncomingCallBridge`](https://github.com/t-kiattisak/react-native-incoming-call/blob/main/src/infrastructure/IncomingCallBridge.ts)) over:
+
+- **`IIncomingCallNativeAdapter`** — Nitro hybrid calls (`show`, `dismiss`, VoIP registration), with per-OS adapters under `src/infrastructure/adapters/`
+- **`IIncomingCallEventAdapter`** — `DeviceEventEmitter` subscriptions for answer/end/voip token events
+
+Native Swift/Kotlin code is unchanged; adapters exist only on the JS side for testability and separation of concerns.
+
+---
+
+## Platform support
+
+| Method / event | Android | iOS |
+| --- | --- | --- |
+| `show()` | Full-screen overlay | CallKit incoming UI |
+| `dismiss()` | Yes | Ends active CallKit incoming call |
+| `backToApp()` | Yes | Opens app URL scheme |
+| `on('answer')` / `on('endCall')` | Yes | Yes |
+| `registerVoipPush()` | No-op | PushKit VoIP registration |
+| `onVoipToken()` | N/A (no event) | VoIP device token |
+
+On iOS, `uuid` must be a **RFC4122 UUID**. See [iOS CallKit & PushKit](./ios-callkit-pushkit.md).
+
+---
+
 ## Methods
 
 ### `show()`
 
-Displays the full-screen incoming call overlay (Android only).
+Displays the incoming call UI.
+
+- **Android:** full-screen overlay / notification flow.
+- **iOS:** reports an incoming call to CallKit.
 
 ```typescript
 function show(
@@ -20,16 +49,16 @@ function show(
 ```
 
 #### Parameters:
-- **`uuid`** (`string`): A unique string identifying the call session.
-- **`avatar`** (`string | null`): HTTP URL of the caller's avatar. Passes `null` to use the default icon.
-- **`timeoutMs`** (`number | null`): Automatic timeout duration in milliseconds. Pass `null` or `0` to disable auto-timeout.
-- **`options`** (`IncomingCallNotificationOptions`): Layout and metadata settings for the notification overlay.
+- **`uuid`** (`string`): Unique call id (RFC4122 UUID on iOS).
+- **`avatar`** (`string | null`): Caller avatar URL (Android UI). Not fetched by native code on iOS (v1).
+- **`timeoutMs`** (`number | null`): Auto-dismiss in milliseconds. `null` or `0` disables timeout.
+- **`options`** (`IncomingCallNotificationOptions`): Call metadata and Android notification settings.
 
 ---
 
 ### `dismiss()`
 
-Dismisses/hides the active incoming call notification immediately.
+Dismisses/hides the active incoming call immediately.
 
 ```typescript
 function dismiss(): void;
@@ -67,7 +96,18 @@ function decline(uuid: string, payload?: string): void;
 
 ---
 
-### `on()`
+### `registerVoipPush()` / `unregisterVoipPush()`
+
+**iOS only.** Registers or tears down PushKit for VoIP pushes. Android methods are no-ops.
+
+```typescript
+function registerVoipPush(): void;
+function unregisterVoipPush(): void;
+```
+
+---
+
+### `on()` / `off()`
 
 Subscribes to native incoming call events.
 
@@ -76,19 +116,22 @@ function on(
   event: 'answer' | 'endCall',
   handler: (payload: any) => void
 ): void;
+
+function off(event: 'answer' | 'endCall'): void;
 ```
 
-- **`'answer'`**: Triggered when the user taps the answer button. Receives `CallAnswerPayload`.
-- **`'endCall'`**: Triggered when the user declines the call, when the notification times out, or when dismissed. Receives `CallDeclinePayload`.
+- **`'answer'`**: User accepted the call. Receives `CallAnswerPayload`.
+- **`'endCall'`**: Declined, timed out, or dismissed. Receives `CallDeclinePayload`.
 
 ---
 
-### `off()`
+### `onVoipToken()` / `offVoipToken()`
 
-Unsubscribes a listener from an event.
+**iOS only.** Listens for the VoIP device token after `registerVoipPush()`.
 
 ```typescript
-function off(event: 'answer' | 'endCall'): void;
+function onVoipToken(handler: (payload: VoipTokenPayload) => void): void;
+function offVoipToken(): void;
 ```
 
 ---
@@ -101,18 +144,18 @@ Configuration dictionary passed to `show()`.
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
-| `channelId` | `string` | Notification Channel ID. |
-| `channelName` | `string` | Display name of the Notification Channel. |
-| `notificationIcon` | `string` | Drawable resource name for the notification icon (e.g. `'ic_launcher'`). |
-| `notificationTitle` | `string` | Text header of the incoming call. |
-| `notificationBody` | `string \| null` | Sub-header description text (optional). |
-| `answerText` | `string` | Label for the Accept/Answer button. |
-| `declineText` | `string` | Label for the Decline/Reject button. |
-| `notificationColor` | `string` | XML accent color resource name (optional). |
-| `notificationSound` | `string` | Custom raw sound resource file name (optional). |
-| `mainComponent` | `string` | React AppRegistry component name to render as custom screen UI (optional). |
-| `isVideo` | `boolean` | Flag to display video call icon indicator (optional). |
-| `payload` | `Record<string, string>` | Custom key-value pairs passed through intents/events (optional). |
+| `channelId` | `string` | Notification Channel ID (Android). |
+| `channelName` | `string` | Notification Channel name (Android). |
+| `notificationIcon` | `string` | Drawable resource name (Android). |
+| `notificationTitle` | `string` | Caller name / CallKit localized name (iOS). |
+| `notificationBody` | `string \| null` | Subtitle (Android); stored in session on iOS. |
+| `answerText` | `string` | Accept button label (Android). |
+| `declineText` | `string` | Decline button label (Android). |
+| `notificationColor` | `string` | Accent color resource (Android, optional). |
+| `notificationSound` | `string` | Custom sound resource (Android, optional). |
+| `mainComponent` | `string` | Custom RN component in call activity (Android, optional). |
+| `isVideo` | `boolean` | Video call indicator (optional). |
+| `payload` | `Record<string, string>` | Custom data passed through events (optional). |
 
 ### `CallAnswerPayload`
 
@@ -134,5 +177,15 @@ export interface CallDeclinePayload {
   callUUID: string;
   payload?: string; // JSON string of the options payload
   endAction: 'ACTION_REJECTED_CALL' | 'ACTION_HIDE_CALL';
+}
+```
+
+### `VoipTokenPayload`
+
+Payload for `onVoipToken()` (iOS).
+
+```typescript
+export interface VoipTokenPayload {
+  token: string;
 }
 ```

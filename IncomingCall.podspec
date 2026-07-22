@@ -14,16 +14,20 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/t-kiattisak/react-native-incoming-call.git", :tag => "#{s.version}" }
 
   s.source_files = [
-    "ios/**/*.{swift}",
-    "ios/**/*.{m,mm}",
+    "ios/*.{swift,h,m,mm}",
+    "ios/**/*.{swift,h,m,mm}",
     "cpp/**/*.{hpp,cpp}",
   ]
 
-  s.dependency 'React-jsi'
+  s.dependency 'React-Core'
   s.dependency 'React-callinvoker'
 
   load 'nitrogen/generated/ios/IncomingCall+autolinking.rb'
   add_nitrogen_files(s)
+
+  s.public_header_files = Array(s.attributes_hash['public_header_files']) + [
+    'ios/IncomingCallEventEmitter.h',
+  ]
 
   install_modules_dependencies(s)
 end

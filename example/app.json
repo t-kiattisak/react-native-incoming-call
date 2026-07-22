@@ -4,6 +4,7 @@
     "slug": "react-native-incoming-call-example",
     "version": "1.0.0",
     "orientation": "portrait",
+    "plugins": ["../app.plugin.js"],
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {

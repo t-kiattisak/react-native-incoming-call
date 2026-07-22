@@ -1,6 +1,7 @@
 import type {
   IncomingCallNotificationOptions,
   IncomingCallEventMap,
+  VoipTokenPayload,
 } from '../types';
 
 export interface IIncomingCallBridge {
@@ -19,4 +20,8 @@ export interface IIncomingCallBridge {
     handler: (payload: IncomingCallEventMap[T]) => void
   ): void;
   off(type: keyof IncomingCallEventMap): void;
+  registerVoipPush(): void;
+  unregisterVoipPush(): void;
+  onVoipToken(handler: (payload: VoipTokenPayload) => void): void;
+  offVoipToken(): void;
 }

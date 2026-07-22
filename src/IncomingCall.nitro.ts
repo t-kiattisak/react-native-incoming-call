@@ -27,4 +27,6 @@ export interface IncomingCall extends HybridObject<{
   ): void;
   hideNotification(): void;
   backToApp(): void;
+  registerVoipPush(): void;
+  unregisterVoipPush(): void;
 }

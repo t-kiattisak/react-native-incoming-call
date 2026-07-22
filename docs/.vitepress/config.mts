@@ -31,7 +31,8 @@ export default defineConfig({
         text: 'Core Guides',
         items: [
           { text: 'Custom RN UI', link: '/guide/custom-ui' },
-          { text: 'Background Integration', link: '/guide/background-integration' }
+          { text: 'Background Integration', link: '/guide/background-integration' },
+          { text: 'iOS CallKit & PushKit', link: '/guide/ios-callkit-pushkit' }
         ]
       },
       {

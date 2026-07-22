@@ -12,31 +12,37 @@ export interface UseIncomingCallOptions {
 }
 
 interface CallState {
-  isActive: boolean;
-  callUUID: string | null;
+  activeCallUUIDs: string[];
 }
 
 type CallAction =
-  | { type: 'SHOW_CALL'; uuid: string }
-  | { type: 'CLEAR_CALL' };
+  | { type: 'ADD_CALL'; uuid: string }
+  | { type: 'REMOVE_CALL'; uuid: string }
+  | { type: 'CLEAR_ALL' };
 
 const initialState: CallState = {
-  isActive: false,
-  callUUID: null,
+  activeCallUUIDs: [],
 };
 
 function callReducer(state: CallState, action: CallAction): CallState {
   switch (action.type) {
-    case 'SHOW_CALL':
+    case 'ADD_CALL': {
+      if (state.activeCallUUIDs.includes(action.uuid)) {
+        return state;
+      }
       return {
-        isActive: true,
-        callUUID: action.uuid,
+        activeCallUUIDs: [...state.activeCallUUIDs, action.uuid],
       };
-    case 'CLEAR_CALL':
-      return {
-        isActive: false,
-        callUUID: null,
-      };
+    }
+    case 'REMOVE_CALL': {
+      const next = state.activeCallUUIDs.filter((id) => id !== action.uuid);
+      if (next.length === state.activeCallUUIDs.length) {
+        return state;
+      }
+      return { activeCallUUIDs: next };
+    }
+    case 'CLEAR_ALL':
+      return { activeCallUUIDs: [] };
     default:
       return state;
   }
@@ -48,7 +54,6 @@ export function useIncomingCall(options?: UseIncomingCallOptions) {
   const onAnswerRef = useRef(options?.onAnswer);
   const onEndCallRef = useRef(options?.onEndCall);
 
-  // Sync callbacks to avoid stale closures
   useEffect(() => {
     onAnswerRef.current = options?.onAnswer;
     onEndCallRef.current = options?.onEndCall;
@@ -56,12 +61,12 @@ export function useIncomingCall(options?: UseIncomingCallOptions) {
 
   useEffect(() => {
     const handleAnswer = (payload: CallAnswerPayload) => {
-      dispatch({ type: 'CLEAR_CALL' });
+      dispatch({ type: 'REMOVE_CALL', uuid: payload.callUUID });
       onAnswerRef.current?.(payload);
     };
 
     const handleEndCall = (payload: CallDeclinePayload) => {
-      dispatch({ type: 'CLEAR_CALL' });
+      dispatch({ type: 'REMOVE_CALL', uuid: payload.callUUID });
       onEndCallRef.current?.(payload);
     };
 
@@ -81,24 +86,24 @@ export function useIncomingCall(options?: UseIncomingCallOptions) {
       timeoutMs: number | null,
       showOptions: IncomingCallNotificationOptions
     ) => {
-      dispatch({ type: 'SHOW_CALL', uuid });
+      dispatch({ type: 'ADD_CALL', uuid });
       incomingCall.show(uuid, avatar, timeoutMs, showOptions);
     },
     []
   );
 
   const dismiss = useCallback(() => {
-    dispatch({ type: 'CLEAR_CALL' });
+    dispatch({ type: 'CLEAR_ALL' });
     incomingCall.dismiss();
   }, []);
 
   const decline = useCallback((uuid: string, payload?: string) => {
-    dispatch({ type: 'CLEAR_CALL' });
+    dispatch({ type: 'REMOVE_CALL', uuid });
     incomingCall.decline(uuid, payload);
   }, []);
 
   const answer = useCallback((uuid: string, payload?: string) => {
-    dispatch({ type: 'CLEAR_CALL' });
+    dispatch({ type: 'REMOVE_CALL', uuid });
     incomingCall.answer(uuid, payload);
   }, []);
 
@@ -106,9 +111,17 @@ export function useIncomingCall(options?: UseIncomingCallOptions) {
     incomingCall.backToApp();
   }, []);
 
+  const activeCallUUIDs = state.activeCallUUIDs;
+  const callUUID =
+    activeCallUUIDs.length > 0
+      ? activeCallUUIDs[activeCallUUIDs.length - 1] ?? null
+      : null;
+
   return {
-    isActive: state.isActive,
-    callUUID: state.callUUID,
+    isActive: activeCallUUIDs.length > 0,
+    callUUID,
+    activeCallCount: activeCallUUIDs.length,
+    activeCallUUIDs,
     show,
     dismiss,
     decline,
@@ -117,4 +130,3 @@ export function useIncomingCall(options?: UseIncomingCallOptions) {
   };
 }
 export type UseIncomingCallResult = ReturnType<typeof useIncomingCall>;
-
