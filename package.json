@@ -1,6 +1,6 @@
 {
   "name": "rn-incoming-call-nitro",
-  "version": "0.2.1-beta.0",
+  "version": "0.3.0",
   "description": "incoming-call",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

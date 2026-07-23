@@ -1,5 +1,7 @@
 # Changelog
 
+# [0.3.0](https://github.com/t-kiattisak/react-native-incoming-call/compare/v0.2.1-beta.0...v0.3.0) (2026-07-23)
+
 ## [0.2.1-beta.0](https://github.com/t-kiattisak/react-native-incoming-call/compare/v0.1.1...v0.2.1-beta.0) (2026-07-22)
 
 
